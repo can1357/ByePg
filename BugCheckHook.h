@@ -7,6 +7,13 @@ namespace BugCheckHook
 {
 	static void( *Callback )( ) = [ ] () {};
 
+	static FnHalNotifyProcessorFreeze* HalNotifyProcessorFreezeOrig = nullptr;
+	static void __stdcall HkHalNotifyProcessorFreeze( BOOLEAN Flag1, BOOLEAN Flag2 )
+	{
+		// Call original routine
+		if ( HalNotifyProcessorFreezeOrig ) HalNotifyProcessorFreezeOrig( Flag1, Flag2 );
+	}
+
 	static FnHalPrepareForBugcheck* HalPrepareForBugcheckOrig = nullptr;
 	static void __stdcall HkHalPrepareForBugcheck( BOOLEAN NmiFlag )
 	{
@@ -30,17 +37,26 @@ namespace BugCheckHook
 	{
 		Callback = Cb;
 
+		// Check if already hooked
 		if ( HalPrepareForBugcheckOrig || HalTimerWatchdogStopOrig )
-		{
-			// Already hooked
-		}
-		else if ( HalPrivateDispatchTable.Version > HAL_PDT_TIMER_WATCHDOG_STOP_MIN_VERSION )
+			return;
+
+		// OS must support HAL processor freeze notifications
+		if ( HalPrivateDispatchTable.Version < HAL_PDT_NOTIFY_PROCESSOR_FREEZE_MIN_VERSION )
+			return false;
+
+		// Hook processor freeze notification
+		HalNotifyProcessorFreezeOrig = HalPrivateDispatchTable.HalNotifyProcessorFreeze;
+		HalPrivateDispatchTable.HalNotifyProcessorFreeze = &HkHalNotifyProcessorFreeze;
+
+		// Hook any function within KeBugCheck2 control flow
+		if ( HalPrivateDispatchTable.Version >= HAL_PDT_TIMER_WATCHDOG_STOP_MIN_VERSION )
 		{
 			// Hook HalTimerWatchdogStop
 			HalTimerWatchdogStopOrig = HalPrivateDispatchTable.HalTimerWatchdogStop;
 			HalPrivateDispatchTable.HalTimerWatchdogStop = &HkHalTimerWatchdogStop;
 		}
-		else if ( HalPrivateDispatchTable.Version > HAL_PDT_PREPARE_FOR_BUGCHECK_MIN_VERSION )
+		else if ( HalPrivateDispatchTable.Version >= HAL_PDT_PREPARE_FOR_BUGCHECK_MIN_VERSION )
 		{
 			// Hook HalPrepareForBugcheck
 			HalPrepareForBugcheckOrig = HalPrivateDispatchTable.HalPrepareForBugcheck;
