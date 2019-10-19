@@ -1,0 +1,7 @@
+*.ipch
+*.opendb
+*.db
+.vs/
+*.tlog
+*.pdb
+x64/
