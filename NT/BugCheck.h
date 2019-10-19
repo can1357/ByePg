@@ -3,50 +3,21 @@
 #include "Internals.h"
 #include "Processor.h"
 
-// Describe KiBugCheckActive
-//
-union BUGCHECK_STATE
-{
-	volatile LONG Value;
-	struct
-	{
-		volatile LONG Active : 3;	// If active set to 0b111, otherwise 0b000. Rest of the flags are unknown.
-		volatile LONG Unknown : 1;	// -- = (UninitializedDwordOnStack & 0x1E) & 1, not too sure.
-		volatile LONG OwnerProcessorIndex : 28;	// Processor index of the processor that initiated BugCheck state
-	};
-};
-
 namespace BugCheck
 {
-	// Continues execution from the ContextRecord
-	//
-	static void Continue( CONTEXT* ContextRecord )
-	{
-		// Disable interrupts, restore IRQL
-		_disable();
-		__writecr8( __readgsbyte( KPCR_DebuggerSavedIRQL ) );
-
-		// Makes RtlRestoreContext control flow a little bit better :)
-		ContextRecord->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT;
-		
-		// Restore context
-		RtlRestoreContext( ContextRecord, nullptr );
-		__debugbreak();
-	}
-
 	// Extracts CONTEXT of the interrupted routine and an EXCEPTION_RECORD 
 	// based on the context saved at the beginning of KeBugCheckEx
 	//
-	static bool Parse( CONTEXT** ContextRecordOut, EXCEPTION_RECORD* RecordOut, CONTEXT* ContextAtBugCheck = GetProcessorContext() )
+	static bool Parse( CONTEXT** ContextRecordOut, EXCEPTION_RECORD* RecordOut, CONTEXT* BugCheckCtx = GetProcessorContext() )
 	{
 		// Get bugcheck parameters
-		ULONG BugCheckCode = ContextAtBugCheck->Rcx;
+		ULONG BugCheckCode = BugCheckCtx->Rcx;
 		ULONG64 BugCheckArgs[] = 
 		{
-			ContextAtBugCheck->Rdx,
-			ContextAtBugCheck->R8,
-			ContextAtBugCheck->R9,
-			*( ULONG64* ) ( ContextAtBugCheck->Rsp + 0x28 )
+			BugCheckCtx->Rdx,
+			BugCheckCtx->R8,
+			BugCheckCtx->R9,
+			*( ULONG64* ) ( BugCheckCtx->Rsp + 0x28 )
 		};
 
 		// Collect information about the exception based on bugcheck code
@@ -62,27 +33,28 @@ namespace BugCheck
 				// No context formed, read from trap frame, can ignore exception frame 
 				// as it should be the same as KeBugCheckEx caller context
 				//
-				Tf = ( KTRAP_FRAME* ) ( ContextAtBugCheck->Rbp - 0x80 );
-				ContextAtBugCheck->Rax = Tf->Rax;
-				ContextAtBugCheck->Rcx = Tf->Rcx;
-				ContextAtBugCheck->Rdx = Tf->Rdx;
-				ContextAtBugCheck->R8 = Tf->R8;
-				ContextAtBugCheck->R9 = Tf->R9;
-				ContextAtBugCheck->R10 = Tf->R10;
-				ContextAtBugCheck->R11 = Tf->R11;
-				ContextAtBugCheck->Rbp = Tf->Rbp;
-				ContextAtBugCheck->Xmm0 = Tf->Xmm0;
-				ContextAtBugCheck->Xmm1 = Tf->Xmm1;
-				ContextAtBugCheck->Xmm2 = Tf->Xmm2;
-				ContextAtBugCheck->Xmm3 = Tf->Xmm3;
-				ContextAtBugCheck->Xmm4 = Tf->Xmm4;
-				ContextAtBugCheck->Xmm5 = Tf->Xmm5;
-				ContextAtBugCheck->Rip = Tf->Rip;
-				ContextAtBugCheck->Rsp = Tf->Rsp;
-				ContextAtBugCheck->SegCs = Tf->SegCs;
-				ContextAtBugCheck->SegSs = Tf->SegSs;
-				ContextAtBugCheck->EFlags = Tf->EFlags;
-				ContextRecord = ContextAtBugCheck;
+				Tf = ( KTRAP_FRAME* ) ( BugCheckCtx->Rbp - 0x80 );
+				BugCheckCtx->Rax = Tf->Rax;
+				BugCheckCtx->Rcx = Tf->Rcx;
+				BugCheckCtx->Rdx = Tf->Rdx;
+				BugCheckCtx->R8 = Tf->R8;
+				BugCheckCtx->R9 = Tf->R9;
+				BugCheckCtx->R10 = Tf->R10;
+				BugCheckCtx->R11 = Tf->R11;
+				BugCheckCtx->Rbp = Tf->Rbp;
+				BugCheckCtx->Xmm0 = Tf->Xmm0;
+				BugCheckCtx->Xmm1 = Tf->Xmm1;
+				BugCheckCtx->Xmm2 = Tf->Xmm2;
+				BugCheckCtx->Xmm3 = Tf->Xmm3;
+				BugCheckCtx->Xmm4 = Tf->Xmm4;
+				BugCheckCtx->Xmm5 = Tf->Xmm5;
+				BugCheckCtx->Rip = Tf->Rip;
+				BugCheckCtx->Rsp = Tf->Rsp;
+				BugCheckCtx->SegCs = Tf->SegCs;
+				BugCheckCtx->SegSs = Tf->SegSs;
+				BugCheckCtx->EFlags = Tf->EFlags;
+				BugCheckCtx->MxCsr = Tf->MxCsr;
+				ContextRecord = BugCheckCtx;
 				ExceptionCode = BugCheckArgs[ 0 ];
 				break;
 			case SYSTEM_THREAD_EXCEPTION_NOT_HANDLED:
@@ -109,7 +81,7 @@ namespace BugCheck
 		if ( !ContextRecord )
 		{
 			constexpr LONG ContextAlignment = __alignof( CONTEXT );
-			ULONG64 StackIt = ContextAtBugCheck->Rsp + 0x28;
+			ULONG64 StackIt = BugCheckCtx->Rsp + 0x28;
 			StackIt &= ~( ContextAlignment - 1 );
 
 			while ( ContextRecord = ( CONTEXT* ) ( StackIt += ContextAlignment ) )
@@ -149,6 +121,4 @@ namespace BugCheck
 		// Report success
 		return true;
 	}
-
-
 };
