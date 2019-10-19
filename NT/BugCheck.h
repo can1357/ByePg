@@ -30,6 +30,7 @@ namespace BugCheck
 		switch ( BugCheckCode )
 		{
 			case UNEXPECTED_KERNEL_MODE_TRAP:
+				ExceptionCode = BugCheckArgs[ 0 ];
 				// No context formed, read from trap frame, can ignore exception frame 
 				// as it should be the same as KeBugCheckEx caller context
 				//
@@ -55,7 +56,6 @@ namespace BugCheck
 				BugCheckCtx->EFlags = Tf->EFlags;
 				BugCheckCtx->MxCsr = Tf->MxCsr;
 				ContextRecord = BugCheckCtx;
-				ExceptionCode = BugCheckArgs[ 0 ];
 				break;
 			case SYSTEM_THREAD_EXCEPTION_NOT_HANDLED:
 				ExceptionCode = BugCheckArgs[ 0 ];
@@ -81,23 +81,22 @@ namespace BugCheck
 		if ( !ContextRecord )
 		{
 			constexpr LONG ContextAlignment = __alignof( CONTEXT );
-			ULONG64 StackIt = BugCheckCtx->Rsp + 0x28;
-			StackIt &= ~( ContextAlignment - 1 );
+			ULONG64 StackIt = BugCheckCtx->Rsp & ~( ContextAlignment - 1 );
 
-			while ( ContextRecord = ( CONTEXT* ) ( StackIt += ContextAlignment ) )
+			while ( ContextRecord = ( CONTEXT* ) StackIt )
 			{
-				if ( ContextRecord->ContextFlags == CONTEXT_ALL &&
+				if ( ( ContextRecord->ContextFlags == 0x10005F || ContextRecord->ContextFlags == 0x10001F ) &&
 					 ContextRecord->SegCs == 0x0010 &&
 					 ContextRecord->SegDs == 0x002B &&
 					 ContextRecord->SegEs == 0x002B &&
 					 ContextRecord->SegFs == 0x0053 &&
 					 ContextRecord->SegGs == 0x002B &&
-					 ContextRecord->SegSs == 0x0018 &&
-					 ExceptionAddress ? ( ContextRecord->Rip == ExceptionAddress ) : ( ContextRecord->Rip > 0xFFFF080000000000 ) &&
+					 ( ContextRecord->Rip == ExceptionAddress || ContextRecord->Rip == ( ExceptionAddress - 1 ) ) &&
 					 ContextRecord->Rsp > 0xFFFF080000000000 )
 				{
 					break;
 				}
+				StackIt += ContextAlignment;
 			}
 		}
 
