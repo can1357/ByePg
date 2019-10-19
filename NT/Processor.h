@@ -60,6 +60,11 @@ inline static KSPECIAL_REGISTERS* GetProcessorState( KPRCB* Prcb = KeGetPcr()->C
 	return ( KSPECIAL_REGISTERS* ) ( PUCHAR( Prcb ) + KPRCB_ProcessorState_SpecialRegisters ); 
 }
 
+inline static ULONG GetProcessorIndex( KPRCB* Prcb = KeGetPcr()->CurrentPrcb )
+{
+	return *( ULONG* ) ( PUCHAR( Prcb ) + KPRCB_ProcessorIndex );
+}
+
 inline static UCHAR& ProcessorNestingLevel( KPRCB* Prcb = KeGetPcr()->CurrentPrcb )
 {
 	return *( UCHAR* ) ( PUCHAR( Prcb ) + KPRCB_NestingLevel );
