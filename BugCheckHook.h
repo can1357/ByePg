@@ -38,7 +38,7 @@ namespace BugCheckHook
 		Callback = Cb;
 
 		// Check if already hooked
-		if ( HalPrepareForBugcheckOrig || HalTimerWatchdogStopOrig )
+		if ( HalPrepareForBugcheckOrig || HalTimerWatchdogStopOrig || HalNotifyProcessorFreezeOrig )
 			return;
 
 		// OS must support HAL processor freeze notifications
