@@ -21,6 +21,9 @@ extern "C" __declspec( dllimport ) void RtlRestoreContext( CONTEXT * ContextReco
 // Undocumented offsets
 //
 static constexpr ULONG KPRCB_ProcessorState_SpecialRegisters = 0x40;
+static constexpr ULONG KPRCB_IpiFrozen = 0x2D08;
+static constexpr ULONG KPRCB_NestingLevel = 0x20;
+
 static ULONG KPRCB_Context = 0;
 static ULONG KPCR_DebuggerSavedIRQL = 0;
 static volatile LONG* KiHardwareTrigger = nullptr;
