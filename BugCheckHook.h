@@ -39,15 +39,19 @@ namespace BugCheckHook
 
 		// Check if already hooked
 		if ( HalPrepareForBugcheckOrig || HalTimerWatchdogStopOrig || HalNotifyProcessorFreezeOrig )
-			return;
-
-		// OS must support HAL processor freeze notifications
-		if ( HalPrivateDispatchTable.Version < HAL_PDT_NOTIFY_PROCESSOR_FREEZE_MIN_VERSION )
-			return false;
+			return true;
 
 		// Hook processor freeze notification
-		HalNotifyProcessorFreezeOrig = HalPrivateDispatchTable.HalNotifyProcessorFreeze;
-		HalPrivateDispatchTable.HalNotifyProcessorFreeze = &HkHalNotifyProcessorFreeze;
+		if ( HalPrivateDispatchTable.Version >= HAL_PDT_NOTIFY_PROCESSOR_FREEZE_MIN_VERSION )
+		{
+			HalNotifyProcessorFreezeOrig = HalPrivateDispatchTable.HalNotifyProcessorFreeze;
+			HalPrivateDispatchTable.HalNotifyProcessorFreeze = &HkHalNotifyProcessorFreeze;
+		}
+		// OS must support HAL processor freeze notifications
+		else
+		{
+			return false;
+		}
 
 		// Hook any function within KeBugCheck2 control flow
 		if ( HalPrivateDispatchTable.Version >= HAL_PDT_TIMER_WATCHDOG_STOP_MIN_VERSION )
@@ -67,5 +71,7 @@ namespace BugCheckHook
 			// Fail
 			return false;
 		}
+
+		return true;
 	}
 };
