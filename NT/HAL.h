@@ -7,6 +7,10 @@
 #define HAL_PDT_PREPARE_FOR_BUGCHECK_MIN_VERSION	6
 using FnHalPrepareForBugcheck = void( __stdcall )( BOOLEAN NmiFlag );
 
+#define HAL_PDT_NOTIFY_PROCESSOR_FREEZE_OFFSET		0x1A8
+#define HAL_PDT_NOTIFY_PROCESSOR_FREEZE_MIN_VERSION	21
+using FnHalNotifyProcessorFreeze = void( __stdcall )( BOOLEAN, BOOLEAN );
+
 #define HAL_PDT_TIMER_WATCHDOG_STOP_OFFSET			0x338
 #define HAL_PDT_TIMER_WATCHDOG_STOP_MIN_VERSION		23
 using FnHalTimerWatchdogStop = NTSTATUS( __stdcall )();
@@ -24,7 +28,12 @@ typedef struct _HAL_PRIVATE_DISPATCH_TABLE
 		};
 		struct
 		{
-			char Pad1[ HAL_PDT_TIMER_WATCHDOG_STOP_OFFSET ];
+			char Pad1[ HAL_PDT_NOTIFY_PROCESSOR_FREEZE_OFFSET ];
+			FnHalNotifyProcessorFreeze* HalNotifyProcessorFreeze;
+		};
+		struct
+		{
+			char Pad2[ HAL_PDT_TIMER_WATCHDOG_STOP_OFFSET ];
 			FnHalTimerWatchdogStop* HalTimerWatchdogStop;
 		};
 	};
