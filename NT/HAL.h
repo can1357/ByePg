@@ -33,4 +33,4 @@ typedef struct _HAL_PRIVATE_DISPATCH_TABLE
 
 // Import HalPrivateDispatchTable
 //
-extern "C" __declspec( dllimport ) HAL_PRIVATE_DISPATCH_TABLE* HalPrivateDispatchTable;
+extern "C" __declspec( dllimport ) HAL_PRIVATE_DISPATCH_TABLE HalPrivateDispatchTable;
