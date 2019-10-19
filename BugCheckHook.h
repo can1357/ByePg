@@ -11,7 +11,7 @@ namespace BugCheckHook
 	static void __stdcall HkHalNotifyProcessorFreeze( BOOLEAN Flag1, BOOLEAN Flag2 )
 	{
 		// Call original routine
-		if ( HalNotifyProcessorFreezeOrig ) HalNotifyProcessorFreezeOrig( Flag1, Flag2 );
+		HalNotifyProcessorFreezeOrig( Flag1, Flag2 );
 	}
 
 	static FnHalPrepareForBugcheck* HalPrepareForBugcheckOrig = nullptr;
@@ -20,7 +20,7 @@ namespace BugCheckHook
 		// Invoke callback
 		Callback();
 		// Call original routine
-		if ( HalPrepareForBugcheckOrig ) HalPrepareForBugcheckOrig( NmiFlag );
+		HalPrepareForBugcheckOrig( NmiFlag );
 	}
 
 	static FnHalTimerWatchdogStop* HalTimerWatchdogStopOrig = nullptr;
@@ -30,7 +30,7 @@ namespace BugCheckHook
 		if ( KeBugCheck2 < _ReturnAddress() && _ReturnAddress() < ( KeBugCheck2 + 0x1000 ) )
 			Callback();
 		// Pass to original routine
-		return HalTimerWatchdogStopOrig ? HalTimerWatchdogStopOrig() : STATUS_UNSUCCESSFUL;
+		return HalTimerWatchdogStopOrig();
 	}
 
 	static bool Set( void( *Cb )( ) )
