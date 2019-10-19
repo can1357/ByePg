@@ -18,14 +18,31 @@ union BUGCHECK_STATE
 
 namespace BugCheck
 {
-	// Extracts CONTEXT of the interrupted routine and an EXCEPTION_RECORD based on the
-	// context at call to KeBugCheckEx
+	// Continues execution from the ContextRecord
 	//
-	static bool Parse( CONTEXT** ContextOut, EXCEPTION_RECORD* RecordOut, CONTEXT* ContextAtBugCheck = GetProcessorContext() )
+	static void Continue( CONTEXT* ContextRecord )
+	{
+		// Disable interrupts, restore IRQL
+		_disable();
+		__writecr8( __readgsbyte( KPCR_DebuggerSavedIRQL ) );
+
+		// Makes RtlRestoreContext control flow a little bit better :)
+		ContextRecord->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT;
+		
+		// Restore context
+		RtlRestoreContext( ContextRecord, nullptr );
+		__debugbreak();
+	}
+
+	// Extracts CONTEXT of the interrupted routine and an EXCEPTION_RECORD 
+	// based on the context saved at the beginning of KeBugCheckEx
+	//
+	static bool Parse( CONTEXT** ContextRecordOut, EXCEPTION_RECORD* RecordOut, CONTEXT* ContextAtBugCheck = GetProcessorContext() )
 	{
 		// Get bugcheck parameters
 		ULONG BugCheckCode = ContextAtBugCheck->Rcx;
-		ULONG64 BugCheckArgs[] = {
+		ULONG64 BugCheckArgs[] = 
+		{
 			ContextAtBugCheck->Rdx,
 			ContextAtBugCheck->R8,
 			ContextAtBugCheck->R9,
@@ -88,7 +105,7 @@ namespace BugCheck
 				return false;
 		}
 
-		// Scan for context if no context record is found
+		// Scan for context if no context pointer could be extracted
 		if ( !ContextRecord )
 		{
 			constexpr LONG ContextAlignment = __alignof( CONTEXT );
@@ -112,8 +129,8 @@ namespace BugCheck
 			}
 		}
 
-		// Write context pointer
-		*ContextOut = ContextRecord;
+		// Write context record pointer
+		*ContextRecordOut = ContextRecord;
 
 		// Write exception record
 		if ( ExceptionRecord )
