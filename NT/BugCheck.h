@@ -133,7 +133,7 @@ namespace BugCheck
 		*ContextRecordOut = ContextRecord;
 
 		// Write exception record
-		if ( ExceptionRecord )
+		if ( !ExceptionRecord )
 		{
 			RecordOut->ExceptionAddress = ( void* ) ( ExceptionAddress ? ExceptionAddress : ContextRecord->Rip );
 			RecordOut->ExceptionCode = ExceptionCode;
