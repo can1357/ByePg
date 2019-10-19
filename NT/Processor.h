@@ -1,5 +1,6 @@
 #pragma once
 #include <ntifs.h>
+#include "Internals.h"
 
 // Define processor related structures
 //
@@ -46,3 +47,15 @@ typedef struct _KSPECIAL_REGISTERS
 // Import KeQueryPrcbAddress
 //
 extern "C" __declspec( dllimport ) KPRCB* KeQueryPrcbAddress( ULONG Number );
+
+// _KPCRB Internals
+//
+inline static CONTEXT* GetProcessorContext( KPRCB* Prcb = KeGetPcr()->CurrentPrcb ) 
+{ 
+	return *( CONTEXT** ) ( PUCHAR( Prcb ) + KPRCB_Context ); 
+}
+
+inline static KSPECIAL_REGISTERS* GetProcessorState( KPRCB* Prcb = KeGetPcr()->CurrentPrcb ) 
+{ 
+	return ( KSPECIAL_REGISTERS* ) ( PUCHAR( Prcb ) + KPRCB_ProcessorState_SpecialRegisters ); 
+}
