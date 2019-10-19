@@ -1,15 +1,17 @@
 #pragma once
+#include <intrin.h>
 #include "NT/HAL.h"
 #include "NT/Internals.h"
-#include <intrin.h>
+#include "ExceptionHandler.h"
 
-namespace BugCheckHook
+namespace HalCallbacks
 {
-	static void( *Callback )( ) = [ ] () {};
-
 	static FnHalNotifyProcessorFreeze* HalNotifyProcessorFreezeOrig = nullptr;
 	static void __stdcall HkHalNotifyProcessorFreeze( BOOLEAN Flag1, BOOLEAN Flag2 )
 	{
+		// Invoke callback if args match KiFreezeTargetExecution's
+		if( Flag1 && !Flag2 )
+			ExceptionHandler::OnFreezeNotification();
 		// Call original routine
 		HalNotifyProcessorFreezeOrig( Flag1, Flag2 );
 	}
@@ -18,7 +20,7 @@ namespace BugCheckHook
 	static void __stdcall HkHalPrepareForBugcheck( BOOLEAN NmiFlag )
 	{
 		// Invoke callback
-		Callback();
+		ExceptionHandler::OnBugCheckNotification();
 		// Call original routine
 		HalPrepareForBugcheckOrig( NmiFlag );
 	}
@@ -28,15 +30,13 @@ namespace BugCheckHook
 	{
 		// Check if caller is KeBugCheck2, if so invoke callback
 		if ( KeBugCheck2 < _ReturnAddress() && _ReturnAddress() < ( KeBugCheck2 + 0x1000 ) )
-			Callback();
+			ExceptionHandler::OnBugCheckNotification();
 		// Pass to original routine
 		return HalTimerWatchdogStopOrig();
 	}
 
-	static bool Set( void( *Cb )( ) )
+	static bool Register()
 	{
-		Callback = Cb;
-
 		// Check if already hooked
 		if ( HalPrepareForBugcheckOrig || HalTimerWatchdogStopOrig || HalNotifyProcessorFreezeOrig )
 			return true;
@@ -71,7 +71,6 @@ namespace BugCheckHook
 			// Fail
 			return false;
 		}
-
 		return true;
 	}
 };

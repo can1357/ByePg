@@ -14,6 +14,19 @@ static UCHAR* ResolveExport( const wchar_t( &Name )[ Len ] )
 	return ( UCHAR* ) Pointer;
 }
 
+// Undocumented type
+//
+union BUGCHECK_STATE
+{
+	volatile LONG Value;
+	struct
+	{
+		volatile LONG Active : 3;	// If active set to 0b111, otherwise 0b000. Rest of the flags are unknown.
+		volatile LONG Unknown : 1;	// -- = (UninitializedDwordOnStack & 0x1E) & 1, not too sure.
+		volatile LONG OwnerProcessorIndex : 28;	// Processor index of the processor that initiated BugCheck state
+	};
+};
+
 // Import RtlRestoreContext
 //
 extern "C" __declspec( dllimport ) void RtlRestoreContext( CONTEXT * ContextRecord, EXCEPTION_RECORD * ExceptionRecord );
@@ -21,14 +34,14 @@ extern "C" __declspec( dllimport ) void RtlRestoreContext( CONTEXT * ContextReco
 // Undocumented offsets
 //
 static constexpr ULONG KPRCB_ProcessorState_SpecialRegisters = 0x40;
+static constexpr ULONG KPRCB_ProcessorIndex = 0x24;
 static constexpr ULONG KPRCB_IpiFrozen = 0x2D08;
 static constexpr ULONG KPRCB_NestingLevel = 0x20;
 
 static ULONG KPRCB_Context = 0;
-static ULONG KPCR_DebuggerSavedIRQL = 0;
 static volatile LONG* KiHardwareTrigger = nullptr;
 static UCHAR* KeBugCheck2 = nullptr;
-static volatile LONG* KiBugCheckActive = nullptr;
+static volatile BUGCHECK_STATE* KiBugCheckActive = nullptr;
 static IMAGE_DOS_HEADER* NtBase = nullptr;
 
 static UCHAR* KeBugCheckExPtr = nullptr;
@@ -56,17 +69,6 @@ namespace Internals
 			}
 		}
 		if ( !KPRCB_Context ) return false;
-
-		// Find offsetof(_KPCR, Pcrb.DebuggerSavedIrql)
-		while ( ++It < ( KeBugCheckExPtr + 0x200 ) )
-		{
-			if ( !memcmp( It, "\x65\x88\x04", 3 ) )	// mov gs:imm32, r8l
-			{
-				KPCR_DebuggerSavedIRQL = *( ULONG* ) ( It + 4 );
-				break;
-			}
-		}
-		if ( !KPCR_DebuggerSavedIRQL ) return false;
 
 		// Find KiHardwareTrigger
 		while ( ++It < ( KeBugCheckExPtr + 0x200 ) )
@@ -100,7 +102,7 @@ namespace Internals
 		{
 			if ( !memcmp( It, "\xF0\x0F\xB1", 3 ) )	// lock cmpxchg [rel32], r32
 			{
-				KiBugCheckActive = ( volatile LONG* ) ( It + 4 + 4 + *( LONG* ) ( It + 4 ) );
+				KiBugCheckActive = ( volatile BUGCHECK_STATE* ) ( It + 4 + 4 + *( LONG* ) ( It + 4 ) );
 				break;
 			}
 		}
