@@ -8,8 +8,8 @@ namespace ExceptionHandler
 {
 	// High-level exception handler callback, must be set only once
 	//
-	using FnExceptionCallback = LONG( CONTEXT* ContextRecord, EXCEPTION_RECORD* ExceptionRecord );
-	static volatile FnExceptionCallback* HlCallback = nullptr;
+	using FnExceptionCallback = LONG(__stdcall*)( CONTEXT* ContextRecord, EXCEPTION_RECORD* ExceptionRecord );
+	static volatile FnExceptionCallback HlCallback = nullptr;
 
 	static void ContinueExecution( CONTEXT* ContextRecord, KSPECIAL_REGISTERS* BugCheckState )
 	{
@@ -26,7 +26,7 @@ namespace ExceptionHandler
 	// IRQL:	HIGH_LEVEL
 	// IF:		0
 	//
-	static void HandleBugCheck( FnExceptionCallback* Cb )
+	static void HandleBugCheck( FnExceptionCallback Cb )
 	{
 		// Get state at KeBugCheck(Ex) call
 		CONTEXT* BugCheckCtx = GetProcessorContext();
@@ -49,7 +49,9 @@ namespace ExceptionHandler
 			*( ULONG64* ) ( BugCheckCtx->Rsp + 0x28 )
 		};
 
-		// Handle __fastfail(4) during dispatch
+		// Handle __fastfail(4) during dispatch, we are causing unexpected exceptions across the kernel
+		// so RSP being valid is not a given.
+		//
 		if ( BugCheckCode == KERNEL_SECURITY_CHECK_FAILURE &&
 			 BugCheckArgs[ 0 ] == 4 )
 		{
@@ -102,7 +104,7 @@ namespace ExceptionHandler
 
 	static void OnFreezeNotification()
 	{
-		FnExceptionCallback* Cb = HlCallback;
+		FnExceptionCallback Cb = HlCallback;
 		if ( !Cb ) return;
 
 		// Clear KiBugCheckActive
@@ -120,7 +122,7 @@ namespace ExceptionHandler
 
 	static void OnBugCheckNotification()
 	{
-		FnExceptionCallback* Cb = HlCallback;
+		FnExceptionCallback Cb = HlCallback;
 		if ( !Cb ) return;
 
 		// Clear KiBugCheckActive

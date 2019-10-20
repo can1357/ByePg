@@ -51,12 +51,14 @@ namespace BugCheck
 
 		switch ( BugCheckCode )
 		{
+			case KERNEL_SECURITY_CHECK_FAILURE:
 			case UNEXPECTED_KERNEL_MODE_TRAP:
-				ExceptionCode = BugCheckArgs[ 0 ];
+				ExceptionCode = ( BugCheckArgs[ 0 ] << 32 ) | BugCheckCode;
+
 				// No context formed, read from trap frame, can ignore exception frame 
 				// as it should be the same as KeBugCheckEx caller context
 				//
-				Tf = ( KTRAP_FRAME* ) ( BugCheckCtx->Rbp - 0x80 );
+				Tf = ( KTRAP_FRAME* ) BugCheckArgs[ 1 ];
 				BugCheckCtx->Rax = Tf->Rax;
 				BugCheckCtx->Rcx = Tf->Rcx;
 				BugCheckCtx->Rdx = Tf->Rdx;

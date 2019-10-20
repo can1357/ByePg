@@ -5,3 +5,6 @@
 *.tlog
 *.pdb
 x64/
+*.lib
+
+*.sys
