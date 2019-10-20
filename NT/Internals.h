@@ -35,11 +35,12 @@ extern "C" __declspec( dllimport ) void RtlRestoreContext( CONTEXT * ContextReco
 //
 static constexpr ULONG KPRCB_ProcessorState_SpecialRegisters = 0x40;
 static constexpr ULONG KPRCB_ProcessorIndex = 0x24;
-static constexpr ULONG KPRCB_IpiFrozen = 0x2D08;
-static constexpr ULONG KPRCB_NestingLevel = 0x20;
 
+
+static ULONG KPRCB_IpiFrozen = 0;
 static ULONG KPRCB_Context = 0;
 static volatile LONG* KiHardwareTrigger = nullptr;
+static volatile LONG* KiFreezeExecutionLock = nullptr;
 static UCHAR* KeBugCheck2 = nullptr;
 static volatile BUGCHECK_STATE* KiBugCheckActive = nullptr;
 static IMAGE_DOS_HEADER* NtBase = nullptr;
@@ -107,6 +108,60 @@ namespace Internals
 			}
 		}
 		if ( !KiBugCheckActive ) return false;
+
+		// Find slave spinlock
+		PUCHAR SpinlockBegin = nullptr;
+		PUCHAR SpinlockEnd = nullptr;
+		while ( ++It < ( KeBugCheck2 + 0x1000 ) )
+		{
+			if ( !memcmp( It, "\xF3\x90\xEB", 3 ) )	// pause jmp
+			{
+				SpinlockEnd = It;
+				It += 2;
+				SpinlockBegin = It + 2 + *( char* ) ( It + 1 );
+				break;
+			}
+		}
+		if ( !SpinlockBegin ) return false;
+
+		PUCHAR Pt = nullptr;
+		if ( SpinlockBegin[ 0 ] == 0x33 && SpinlockBegin[ 4 ] == 0xE8 )
+		{
+			// Call to KiCheckForFreezeExecution
+			Pt = SpinlockBegin + 4 + 5 + *( LONG* ) ( SpinlockBegin + 4 + 1 );
+
+			while ( Pt[ 0 ] != 0x83 || Pt[ 2 ] != 0x05 ) Pt++;
+			KPRCB_IpiFrozen = *( LONG* ) ( Pt - 4 );
+
+			while ( Pt[ 0 ] != 0xE8 || Pt[ 4 ] != 0x00 ) Pt++;
+			Pt = Pt + 5 + *( LONG* ) ( Pt + 1 );
+		}
+		else if ( SpinlockBegin[ 0 ] == 0x65 && SpinlockBegin[ 9 ] == 0x8B && SpinlockBegin[ 0x18 ] == 0xE8 )
+		{
+			// Inlined IpiFreeze check, call to KiFreezeTargetExecution
+			KPRCB_IpiFrozen = *( LONG* ) ( SpinlockBegin + 0xB );
+			Pt = SpinlockBegin + 0x18 + 5 + *( LONG* ) ( SpinlockBegin + 0x18 + 1 );
+		}
+		else
+		{
+			// Unknown loop
+			return false;
+		}
+
+		// Find first compare
+		while ( ++Pt )
+		{
+			if ( *( USHORT* ) Pt == 0x394C )
+			{
+				KiFreezeExecutionLock = ( volatile LONG* ) ( It + 3 + 4 + *( LONG* ) ( It + 3 ) );
+				break;
+			}
+			else if ( *( USHORT* ) Pt == 0x8348 )
+			{
+				KiFreezeExecutionLock = ( volatile LONG* ) ( Pt + 3 + 4 + 1 + *( LONG* ) ( Pt + 3 ) );
+				break;
+			}
+		}
 
 		// Find ntoskrnl base
 		while ( true )
