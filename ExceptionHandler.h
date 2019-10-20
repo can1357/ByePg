@@ -11,6 +11,18 @@ namespace ExceptionHandler
 	using FnExceptionCallback = LONG( CONTEXT* ContextRecord, EXCEPTION_RECORD* ExceptionRecord );
 	static volatile FnExceptionCallback* HlCallback = nullptr;
 
+	static void ContinueExecution( CONTEXT* ContextRecord, KSPECIAL_REGISTERS* BugCheckState )
+	{
+		// Revert IRQL to match interrupted routine
+		_disable();
+		__writecr8( BugCheckState->Cr8 );
+
+		// Restore context (These flags make the control flow a little simpler :wink:)
+		ContextRecord->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT;
+		RtlRestoreContext( ContextRecord, nullptr );
+		__fastfail( 0 );
+	}
+
 	// IRQL:	HIGH_LEVEL
 	// IF:		0
 	//
@@ -37,6 +49,40 @@ namespace ExceptionHandler
 			*( ULONG64* ) ( BugCheckCtx->Rsp + 0x28 )
 		};
 
+		// Handle __fastfail(4) during dispatch
+		if ( BugCheckCode == KERNEL_SECURITY_CHECK_FAILURE &&
+			 BugCheckArgs[ 0 ] == 4 )
+		{
+			KTRAP_FRAME* Tf = ( KTRAP_FRAME* ) BugCheckArgs[ 1 ];
+
+			// Copy trap frame
+			BugCheckCtx->Rax = Tf->Rax;
+			BugCheckCtx->Rcx = Tf->Rcx;
+			BugCheckCtx->Rdx = Tf->Rdx;
+			BugCheckCtx->R8 = Tf->R8;
+			BugCheckCtx->R9 = Tf->R9;
+			BugCheckCtx->R10 = Tf->R10;
+			BugCheckCtx->R11 = Tf->R11;
+			BugCheckCtx->Rbp = Tf->Rbp;
+			BugCheckCtx->Xmm0 = Tf->Xmm0;
+			BugCheckCtx->Xmm1 = Tf->Xmm1;
+			BugCheckCtx->Xmm2 = Tf->Xmm2;
+			BugCheckCtx->Xmm3 = Tf->Xmm3;
+			BugCheckCtx->Xmm4 = Tf->Xmm4;
+			BugCheckCtx->Xmm5 = Tf->Xmm5;
+			BugCheckCtx->Rip = Tf->Rip;
+			BugCheckCtx->Rsp = Tf->Rsp;
+			BugCheckCtx->SegCs = Tf->SegCs;
+			BugCheckCtx->SegSs = Tf->SegSs;
+			BugCheckCtx->EFlags = Tf->EFlags;
+			BugCheckCtx->MxCsr = Tf->MxCsr;
+
+			// Return from RtlpGetStackLimits
+			BugCheckCtx->Rsp += 0x30;
+			BugCheckCtx->Rip = *( ULONG64* ) ( BugCheckCtx->Rsp - 0x8 );
+			ContinueExecution( BugCheckCtx, BugCheckState );
+		}
+
 		// Try parsing parameters
 		CONTEXT* ContextRecord = nullptr;
 		EXCEPTION_RECORD ExceptionRecord;
@@ -44,19 +90,11 @@ namespace ExceptionHandler
 		{
 			// Try handling exception
 			if ( Cb( ContextRecord, &ExceptionRecord ) == EXCEPTION_CONTINUE_EXECUTION )
-			{
-				// Revert IRQL to match interrupted routine
-				_disable();
-				__writecr8( BugCheckState->Cr8 );
-
-				// Restore context (These flags make the control flow a little simpler :wink:)
-				ContextRecord->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT;
-				RtlRestoreContext( ContextRecord, nullptr );
-				__fastfail( 0 );
-			}
+				ContinueExecution( ContextRecord, BugCheckState );
 		}
 
 		// Failed to handle, show blue screen
+		WaitForDebugger();
 		HlCallback = nullptr;
 		ProcessorIpiFrozen() = 0;
 		*KiFreezeExecutionLock = false;

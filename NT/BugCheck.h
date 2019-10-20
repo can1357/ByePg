@@ -5,6 +5,28 @@
 
 namespace BugCheck
 {
+	static CONTEXT* FindContext( ULONG64 Rsp )
+	{
+		constexpr LONG ContextAlignment = __alignof( CONTEXT );
+		Rsp &= ~( ContextAlignment - 1 );
+
+		CONTEXT* ContextRecord;
+		while ( ContextRecord = ( CONTEXT* ) Rsp )
+		{
+			if ( ( ContextRecord->ContextFlags == 0x10005F || ContextRecord->ContextFlags == 0x10001F ) &&
+				 ContextRecord->SegCs == 0x0010 &&
+				 ContextRecord->SegDs == 0x002B &&
+				 ContextRecord->SegEs == 0x002B &&
+				 ContextRecord->SegFs == 0x0053 &&
+				 ContextRecord->SegGs == 0x002B )
+			{
+				break;
+			}
+			Rsp += ContextAlignment;
+		}
+		return ContextRecord;
+	}
+
 	// Extracts CONTEXT of the interrupted routine and an EXCEPTION_RECORD 
 	// based on the context saved at the beginning of KeBugCheckEx
 	//
@@ -79,26 +101,7 @@ namespace BugCheck
 
 		// Scan for context if no context pointer could be extracted
 		if ( !ContextRecord )
-		{
-			constexpr LONG ContextAlignment = __alignof( CONTEXT );
-			ULONG64 StackIt = BugCheckCtx->Rsp & ~( ContextAlignment - 1 );
-
-			while ( ContextRecord = ( CONTEXT* ) StackIt )
-			{
-				if ( ( ContextRecord->ContextFlags == 0x10005F || ContextRecord->ContextFlags == 0x10001F ) &&
-					 ContextRecord->SegCs == 0x0010 &&
-					 ContextRecord->SegDs == 0x002B &&
-					 ContextRecord->SegEs == 0x002B &&
-					 ContextRecord->SegFs == 0x0053 &&
-					 ContextRecord->SegGs == 0x002B &&
-					 ( ContextRecord->Rip == ExceptionAddress || ContextRecord->Rip == ( ExceptionAddress - 1 ) ) &&
-					 ContextRecord->Rsp > 0xFFFF080000000000 )
-				{
-					break;
-				}
-				StackIt += ContextAlignment;
-			}
-		}
+			ContextRecord = FindContext( BugCheckCtx->Rsp );
 
 		// Write context record pointer
 		*ContextRecordOut = ContextRecord;
