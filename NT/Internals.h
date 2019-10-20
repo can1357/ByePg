@@ -153,7 +153,7 @@ namespace Internals
 		{
 			if ( *( USHORT* ) Pt == 0x394C )
 			{
-				KiFreezeExecutionLock = ( volatile LONG* ) ( It + 3 + 4 + *( LONG* ) ( It + 3 ) );
+				KiFreezeExecutionLock = ( volatile LONG* ) ( Pt + 3 + 4 + *( LONG* ) ( Pt + 3 ) );
 				break;
 			}
 			else if ( *( USHORT* ) Pt == 0x8348 )

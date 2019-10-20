@@ -93,8 +93,7 @@ namespace ExceptionHandler
 				ContinueExecution( ContextRecord, BugCheckState );
 		}
 
-		// Failed to handle, show blue screen
-		WaitForDebugger();
+		// Failed to handle, try to show blue screen
 		HlCallback = nullptr;
 		ProcessorIpiFrozen() = 0;
 		*KiFreezeExecutionLock = false;
