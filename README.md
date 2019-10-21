@@ -13,3 +13,6 @@ https://blog.can.ac/2019/10/19/byepg-defeating-patchguard-using-exception-hookin
 - `\InfinityHookFix` contains a sample rendering the recent InfinityHook patch by Microsoft useless
 - `\FreeSeh` contains a SEH-via-ByePg module letting you use SEH in manual mapped images bypassing PatchGuard's inverted function table checks
 - `\ThreadTracing (WIP)` contains a work-in-progress module to trace context switches by abusing the #GP(0) raised when a non-cannonical address is written to IA32_FS_BASE, IA32_GS_BASE, IA32_KERNEL_GS_BASE MSRs.
+
+## P.S.
+There are way too many things that can be done using the base library and many things can be improved, be SEH handling or BugCheck parsing, so I would **really** appreciate any form of contribution to this repo.
