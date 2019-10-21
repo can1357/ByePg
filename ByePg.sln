@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InfinityHookFix", "Infinity
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ThreadTracing", "ThreadTracing (WIP)\ThreadTracing.vcxproj", "{19744122-F774-4945-882A-84F17D549CF1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FreeSeh", "FreeSeh\FreeSeh.vcxproj", "{9E92BC83-28B7-4878-8BC9-BE670A6335BC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|x64 = Release|x64
@@ -28,6 +30,9 @@ Global
 		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.ActiveCfg = Release|x64
 		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.Build.0 = Release|x64
 		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.Deploy.0 = Release|x64
+		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.ActiveCfg = Release|x64
+		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.Build.0 = Release|x64
+		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.Deploy.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
