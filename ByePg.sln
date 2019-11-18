@@ -9,9 +9,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExceptionHookingDemo", "Exc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InfinityHookFix", "InfinityHookFix\InfinityHookFix.vcxproj", "{118D62F7-5DDC-4385-8DA9-A781B503F367}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ThreadTracing", "ThreadTracing (WIP)\ThreadTracing.vcxproj", "{19744122-F774-4945-882A-84F17D549CF1}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FreeSeh", "FreeSeh\FreeSeh.vcxproj", "{9E92BC83-28B7-4878-8BC9-BE670A6335BC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExHook", "ExHook\ExHook.vcxproj", "{AC2376D9-65EF-440F-9EE1-ED6B7BF03CA2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,12 +27,12 @@ Global
 		{118D62F7-5DDC-4385-8DA9-A781B503F367}.Release|x64.ActiveCfg = Release|x64
 		{118D62F7-5DDC-4385-8DA9-A781B503F367}.Release|x64.Build.0 = Release|x64
 		{118D62F7-5DDC-4385-8DA9-A781B503F367}.Release|x64.Deploy.0 = Release|x64
-		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.ActiveCfg = Release|x64
-		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.Build.0 = Release|x64
-		{19744122-F774-4945-882A-84F17D549CF1}.Release|x64.Deploy.0 = Release|x64
 		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.ActiveCfg = Release|x64
 		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.Build.0 = Release|x64
 		{9E92BC83-28B7-4878-8BC9-BE670A6335BC}.Release|x64.Deploy.0 = Release|x64
+		{AC2376D9-65EF-440F-9EE1-ED6B7BF03CA2}.Release|x64.ActiveCfg = Release|x64
+		{AC2376D9-65EF-440F-9EE1-ED6B7BF03CA2}.Release|x64.Build.0 = Release|x64
+		{AC2376D9-65EF-440F-9EE1-ED6B7BF03CA2}.Release|x64.Deploy.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
