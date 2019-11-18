@@ -42,18 +42,12 @@ namespace ExceptionHandler
 			*( ULONG64* ) ( BugCheckCtx->Rsp + 0x28 )
 		};
 
-		// Disable nested handling
-		ULONG FillPrev = KeGetPcr()->PcrAlign1[ 4 ];
-		if ( FillPrev != 0x33 )
+		// If nested lock is not set:
+		USHORT FillPrev = KeGetPcr()->MajorVersion;
+		if ( KeGetPcr()->MajorVersion != 0xBA )
 		{
-			KeGetPcr()->PcrAlign1[ 4 ] = 0x33;
-
-			// Lower IRQL to DISPATCH_LEVEL where possible
-			if ( BugCheckCtx->EFlags & 0x200 )
-			{
-				__writecr8( BugCheckState->Cr8 >= DISPATCH_LEVEL ? BugCheckState->Cr8 : DISPATCH_LEVEL );
-				_enable();
-			}
+			// Disable nested handling
+			KeGetPcr()->MajorVersion = 0xBA;
 
 			// Handle __fastfail(4) during dispatch, we are causing unexpected exceptions across the kernel
 			// so RSP being valid is not a given.
@@ -88,8 +82,27 @@ namespace ExceptionHandler
 				// Return from RtlpGetStackLimits
 				BugCheckCtx->Rsp += 0x30;
 				BugCheckCtx->Rip = *( ULONG64* ) ( BugCheckCtx->Rsp - 0x8 );
-				KeGetPcr()->PcrAlign1[ 4 ] = FillPrev;
+
+				// Enable nested handling again
+				KeGetPcr()->MajorVersion = FillPrev;
+				
+				// Continue execution
 				ContinueExecution( BugCheckCtx, BugCheckState );
+			}
+
+			// If interrupts were enabled:
+			if ( BugCheckCtx->EFlags & 0x200 )
+			{
+				// Set IRQL to DISPATCH_LEVEL where possible
+				__writecr8( BugCheckState->Cr8 >= DISPATCH_LEVEL ? BugCheckState->Cr8 : DISPATCH_LEVEL );
+				
+				// Enable interrupts again
+				_enable();
+			}
+			else
+			{
+				// Set IRQL to HIGH_LEVEL
+				__writecr8( HIGH_LEVEL );
 			}
 
 			// Try parsing parameters
@@ -100,7 +113,10 @@ namespace ExceptionHandler
 				// Try handling exception
 				if ( Cb( ContextRecord, &ExceptionRecord ) == EXCEPTION_CONTINUE_EXECUTION )
 				{
-					KeGetPcr()->PcrAlign1[ 4 ] = FillPrev;
+					// Enable nested handling again
+					KeGetPcr()->MajorVersion = FillPrev;
+
+					// Continue execution
 					ContinueExecution( ContextRecord, BugCheckState );
 				}
 			}
