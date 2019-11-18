@@ -46,7 +46,7 @@ namespace HalCallbacks
 			ExceptionHandler::OnFreezeNotification();
 		
 		// Pass to original routine
-		HkHalRestoreHvEnlightenment();
+		HalRestoreHvEnlightenmentOrig();
 	}
 
 	static bool Register()
