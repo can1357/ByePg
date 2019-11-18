@@ -58,7 +58,7 @@ LONG SystemWideExceptionHandler( CONTEXT* ContextRecord, EXCEPTION_RECORD* Excep
 				KiCopyCountersWorker endp
 				*/
 
-				// Skip to prologue
+				// Skip to epilogue
 				//
 				while ( Instruction[ 0 ] != 0xEB ||
 						Instruction[ 1 ] != 0x00 ) Instruction++;
