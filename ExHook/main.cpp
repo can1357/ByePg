@@ -10,14 +10,13 @@ void SysExitIntercept( PETHREAD Thread )
 	//
 	KTRAP_FRAME* TrapFrame = PsGetBaseTrapFrame( Thread );
 	KTRAP_FRAME* ThrTrapFrame = PsGetTrapFrame( Thread );
-	ULONG SyscallIndex = PsGetSystemCallNumber( Thread );
 	if ( TrapFrame != ThrTrapFrame ) return;
 
 	// Check if it's a service frame
 	//
 	if ( TrapFrame->ExceptionActive == 2 )
 	{
-		Log( "SYSCALL %d [%p, %p, %p, %p]\n", SyscallIndex, TrapFrame->Rcx, TrapFrame->Rdx, TrapFrame->R8, TrapFrame->R9 );
+		Log( "SYSCALL %d [%p, %p, %p, %p]\n", PsGetSystemCallNumber( Thread ), TrapFrame->Rcx, TrapFrame->Rdx, TrapFrame->R8, TrapFrame->R9 );
 	}
 }
 
@@ -50,7 +49,7 @@ LONG SystemWideExceptionHandler( CONTEXT* ContextRecord, EXCEPTION_RECORD* Excep
 			if ( Instruction[ 3 ] == 0x08 )
 			{
 				/*
-					jmp     short $+2		<-- Prologue start
+					jmp     short $+2		<-- Epilogue start
 					mov     rbx, [rsp+38h+arg_0]	
 					mov     rsi, [rsp+38h+arg_18]
 					add     rsp, 30h
