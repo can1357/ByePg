@@ -24,11 +24,11 @@ BYEPG_EXPORT NTSTATUS ByePgInitialize( BYE_PG_EX_CALLBACK Callback, BOOLEAN Verb
 		Log( "KiBugCheckActive:         0x%p\n", KiBugCheckActive );
 		Log( "KPRCB_Context:            +0x%x\n", KPRCB_Context );
 		Log( "KPRCB_IpiFrozen:          +0x%x\n", KPRCB_IpiFrozen );
+		Log( "KPCR_DebuggerSavedIRQL:   +0x%x\n", KPCR_DebuggerSavedIRQL );
 		Log( "-------------------------------\n" );
 	}
 
 	if ( !Success ) return BPG_STATUS_FAILED_TO_RESOLVE_INT;
-
 
 	// Register HAL callbacks
 	//

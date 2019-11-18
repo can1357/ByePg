@@ -12,6 +12,7 @@ namespace HalCallbacks
 		// Invoke callback if args match KiFreezeTargetExecution's
 		if( Flag1 && !Flag2 )
 			ExceptionHandler::OnFreezeNotification();
+
 		// Call original routine
 		HalNotifyProcessorFreezeOrig( Flag1, Flag2 );
 	}
@@ -21,6 +22,7 @@ namespace HalCallbacks
 	{
 		// Invoke callback
 		ExceptionHandler::OnBugCheckNotification();
+
 		// Call original routine
 		HalPrepareForBugcheckOrig( NmiFlag );
 	}
@@ -31,8 +33,20 @@ namespace HalCallbacks
 		// Check if caller is KeBugCheck2, if so invoke callback
 		if ( KeBugCheck2 < _ReturnAddress() && _ReturnAddress() < ( KeBugCheck2 + 0x1000 ) )
 			ExceptionHandler::OnBugCheckNotification();
+
 		// Pass to original routine
 		return HalTimerWatchdogStopOrig();
+	}
+
+	static FnHalRestoreHvEnlightenment* HalRestoreHvEnlightenmentOrig = nullptr;
+	static void __stdcall HkHalRestoreHvEnlightenment()
+	{
+		// Check if caller is KeBugCheck2, if so invoke callback
+		if ( KeBugCheck2 < _ReturnAddress() && _ReturnAddress() < ( KeBugCheck2 + 0x1000 ) )
+			ExceptionHandler::OnFreezeNotification();
+		
+		// Pass to original routine
+		HkHalRestoreHvEnlightenment();
 	}
 
 	static bool Register()
@@ -71,6 +85,14 @@ namespace HalCallbacks
 			// Fail
 			return false;
 		}
+
+		// Hook a function called before returning to firmware
+		if ( HalPrivateDispatchTable.Version <= HAL_PDT_RESTORE_HV_ENLIGHTENMENT_MIN_VERSION ) return false;
+
+		// Hook HalRestoreHvEnlightenment
+		HalRestoreHvEnlightenmentOrig = HalPrivateDispatchTable.HalRestoreHvEnlightenment;
+		HalPrivateDispatchTable.HalRestoreHvEnlightenment = &HkHalRestoreHvEnlightenment;
+
 		return true;
 	}
 };

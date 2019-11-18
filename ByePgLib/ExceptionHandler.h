@@ -11,11 +11,11 @@ namespace ExceptionHandler
 	using FnExceptionCallback = LONG(__stdcall*)( CONTEXT* ContextRecord, EXCEPTION_RECORD* ExceptionRecord );
 	static volatile FnExceptionCallback HlCallback = nullptr;
 
-	static void ContinueExecution( CONTEXT* ContextRecord, KSPECIAL_REGISTERS* BugCheckState )
+	static void ContinueExecution( CONTEXT* ContextRecord, KIRQL ContextIrql )
 	{
 		// Revert IRQL to match interrupted routine
 		_disable();
-		__writecr8( BugCheckState->Cr8 );
+		__writecr8( ContextIrql );
 
 		// Restore context (These flags make the control flow a little simpler :wink:)
 		ContextRecord->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT;
@@ -31,6 +31,7 @@ namespace ExceptionHandler
 		// Get state at KeBugCheck(Ex) call
 		CONTEXT* BugCheckCtx = GetProcessorContext();
 		KSPECIAL_REGISTERS* BugCheckState = GetProcessorState();
+		KIRQL BugCheckIrql = ProcessorDebuggerSavedIRQL();
 
 		// Extract arguments of the original call, BugCheck::Parse may clobber them
 		ULONG BugCheckCode = BugCheckCtx->Rcx;
@@ -87,14 +88,14 @@ namespace ExceptionHandler
 				KeGetPcr()->MajorVersion = FillPrev;
 				
 				// Continue execution
-				ContinueExecution( BugCheckCtx, BugCheckState );
+				ContinueExecution( BugCheckCtx, BugCheckIrql );
 			}
 
 			// If interrupts were enabled:
 			if ( BugCheckCtx->EFlags & 0x200 )
 			{
 				// Set IRQL to DISPATCH_LEVEL where possible
-				__writecr8( BugCheckState->Cr8 >= DISPATCH_LEVEL ? BugCheckState->Cr8 : DISPATCH_LEVEL );
+				__writecr8( BugCheckIrql >= DISPATCH_LEVEL ? BugCheckIrql : DISPATCH_LEVEL );
 				
 				// Enable interrupts again
 				_enable();
@@ -117,28 +118,36 @@ namespace ExceptionHandler
 					KeGetPcr()->MajorVersion = FillPrev;
 
 					// Continue execution
-					ContinueExecution( ContextRecord, BugCheckState );
+					ContinueExecution( ContextRecord, BugCheckIrql );
 				}
 			}
 		}
 
 		// Failed to handle, try to show blue screen
-		HlCallback = nullptr;
-		ProcessorIpiFrozen() = 0;
-		*KiFreezeExecutionLock = false;
-		return KeBugCheckEx( BugCheckCode, BugCheckArgs[ 0 ], BugCheckArgs[ 1 ], BugCheckArgs[ 2 ], BugCheckArgs[ 3 ] );
+		if ( InterlockedCompareExchange( KiFreezeExecutionLock, FALSE, TRUE ) == TRUE )
+		{
+			HlCallback = nullptr;
+			ProcessorIpiFrozen() = 0;
+			*KiFreezeExecutionLock = false;
+			return KeBugCheckEx( BugCheckCode, BugCheckArgs[ 0 ], BugCheckArgs[ 1 ], BugCheckArgs[ 2 ], BugCheckArgs[ 3 ] );
+		}
+		while ( 1 );
 	}
 
 	static void OnFreezeNotification()
 	{
 		FnExceptionCallback Cb = HlCallback;
-		if ( !Cb ) return;
+		if ( !Cb )
+		{
+			if ( ProcessorIpiFrozen() != 0 ) while ( 1 );
+			else return;
+		}
 
 		// Clear KiBugCheckActive
 		KiBugCheckActive->Value = 0;
 
-		// Decrement counter
-		InterlockedDecrement( KiHardwareTrigger );
+		// Reset hardware trigger
+		*KiHardwareTrigger = 0;
 
 		// Reset IpiFrozen
 		ProcessorIpiFrozen() = 5;
@@ -150,13 +159,17 @@ namespace ExceptionHandler
 	static void OnBugCheckNotification()
 	{
 		FnExceptionCallback Cb = HlCallback;
-		if ( !Cb ) return;
+		if ( !Cb )
+		{
+			if ( ProcessorIpiFrozen() != 0 ) while ( 1 );
+			else return;
+		}
 
 		// Clear KiBugCheckActive
 		KiBugCheckActive->Value = 0;
 
-		// Decrement counter
-		InterlockedDecrement( KiHardwareTrigger );
+		// Reset hardware trigger
+		*KiHardwareTrigger = 0;
 
 		// Handle BugCheck
 		return HandleBugCheck( Cb );

@@ -69,3 +69,9 @@ inline static ULONG& ProcessorIpiFrozen( KPRCB* Prcb = KeGetPcr()->CurrentPrcb )
 {
 	return *( ULONG* ) ( PUCHAR( Prcb ) + KPRCB_IpiFrozen );
 }
+
+inline static KIRQL& ProcessorDebuggerSavedIRQL( KPCR* Pcr = KeGetPcr() )
+{
+	return *( KIRQL* ) ( PUCHAR( Pcr ) + KPCR_DebuggerSavedIRQL );
+}
+
