@@ -43,11 +43,11 @@ namespace ExceptionHandler
 		};
 
 		// If nested lock is not set:
-		USHORT FillPrev = KeGetPcr()->MajorVersion;
-		if ( KeGetPcr()->MajorVersion != 0xBA )
+		auto FillPrev = KeGetPcr()->MajorVersion;
+		if ( KeGetPcr()->MajorVersion != 0x7A )
 		{
 			// Disable nested handling
-			KeGetPcr()->MajorVersion = 0xBA;
+			KeGetPcr()->MajorVersion = 0x7A;
 
 			// Handle __fastfail(4) during dispatch, we are causing unexpected exceptions across the kernel
 			// so RSP being valid is not a given.

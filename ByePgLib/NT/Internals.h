@@ -54,7 +54,7 @@ namespace Internals
 	{
 		// Fetch routine addresses
 		KeBugCheckExPtr = ResolveExport( L"KeBugCheckEx" );
-		KeBugCheckPtr = ResolveExport( L"KeBugCheckEx" );
+		KeBugCheckPtr = ResolveExport( L"KeBugCheck" );
 	
 		// Find offsetof(_KPRCB, Context)
 		UCHAR* It = KeBugCheckExPtr;

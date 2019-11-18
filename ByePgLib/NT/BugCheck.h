@@ -8,6 +8,7 @@ namespace BugCheck
 	static CONTEXT* FindContext( ULONG64 Rsp )
 	{
 		constexpr LONG ContextAlignment = __alignof( CONTEXT );
+		Rsp += ContextAlignment - 1;
 		Rsp &= ~( ContextAlignment - 1 );
 		Rsp -= ContextAlignment;
 
@@ -50,6 +51,7 @@ namespace BugCheck
 	{
 		// Get bugcheck parameters
 		ULONG BugCheckCode = BugCheckCtx->Rcx;
+
 		ULONG64 BugCheckArgs[] = 
 		{
 			BugCheckCtx->Rdx,
@@ -95,6 +97,7 @@ namespace BugCheck
 				BugCheckCtx->EFlags = Tf->EFlags;
 				BugCheckCtx->MxCsr = Tf->MxCsr;
 				ContextRecord = BugCheckCtx;
+				ExceptionAddress = Tf->Rip;
 				break;
 			case SYSTEM_THREAD_EXCEPTION_NOT_HANDLED:
 				ExceptionCode = BugCheckArgs[ 0 ];
@@ -137,7 +140,7 @@ namespace BugCheck
 		// Write exception record
 		if ( !ExceptionRecord )
 		{
-			RecordOut->ExceptionAddress = ( void* ) ( ExceptionAddress ? ExceptionAddress : ContextRecord->Rip );
+			RecordOut->ExceptionAddress = ( void* ) ExceptionAddress;
 			RecordOut->ExceptionCode = ExceptionCode;
 			RecordOut->ExceptionFlags = 0;
 			RecordOut->ExceptionRecord = nullptr;
