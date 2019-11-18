@@ -32,16 +32,9 @@ namespace ExceptionHandler
 		CONTEXT* BugCheckCtx = GetProcessorContext();
 		KSPECIAL_REGISTERS* BugCheckState = GetProcessorState();
 
-		// Lower IRQL to DISPATCH_LEVEL where possible
-		if ( BugCheckCtx->EFlags & 0x200 )
-		{
-			__writecr8( BugCheckState->Cr8 >= DISPATCH_LEVEL ? BugCheckState->Cr8 : DISPATCH_LEVEL );
-			_enable();
-		}
-
 		// Extract arguments of the original call, BugCheck::Parse may clobber them
 		ULONG BugCheckCode = BugCheckCtx->Rcx;
-		ULONG64 BugCheckArgs[] = 
+		ULONG64 BugCheckArgs[] =
 		{
 			BugCheckCtx->Rdx,
 			BugCheckCtx->R8,
@@ -49,50 +42,68 @@ namespace ExceptionHandler
 			*( ULONG64* ) ( BugCheckCtx->Rsp + 0x28 )
 		};
 
-		// Handle __fastfail(4) during dispatch, we are causing unexpected exceptions across the kernel
-		// so RSP being valid is not a given.
-		//
-		if ( BugCheckCode == KERNEL_SECURITY_CHECK_FAILURE &&
-			 BugCheckArgs[ 0 ] == 4 )
+		// Disable nested handling
+		ULONG FillPrev = KeGetPcr()->PcrAlign1[ 4 ];
+		if ( FillPrev != 0x33 )
 		{
-			KTRAP_FRAME* Tf = ( KTRAP_FRAME* ) BugCheckArgs[ 1 ];
+			KeGetPcr()->PcrAlign1[ 4 ] = 0x33;
 
-			// Copy trap frame
-			BugCheckCtx->Rax = Tf->Rax;
-			BugCheckCtx->Rcx = Tf->Rcx;
-			BugCheckCtx->Rdx = Tf->Rdx;
-			BugCheckCtx->R8 = Tf->R8;
-			BugCheckCtx->R9 = Tf->R9;
-			BugCheckCtx->R10 = Tf->R10;
-			BugCheckCtx->R11 = Tf->R11;
-			BugCheckCtx->Rbp = Tf->Rbp;
-			BugCheckCtx->Xmm0 = Tf->Xmm0;
-			BugCheckCtx->Xmm1 = Tf->Xmm1;
-			BugCheckCtx->Xmm2 = Tf->Xmm2;
-			BugCheckCtx->Xmm3 = Tf->Xmm3;
-			BugCheckCtx->Xmm4 = Tf->Xmm4;
-			BugCheckCtx->Xmm5 = Tf->Xmm5;
-			BugCheckCtx->Rip = Tf->Rip;
-			BugCheckCtx->Rsp = Tf->Rsp;
-			BugCheckCtx->SegCs = Tf->SegCs;
-			BugCheckCtx->SegSs = Tf->SegSs;
-			BugCheckCtx->EFlags = Tf->EFlags;
-			BugCheckCtx->MxCsr = Tf->MxCsr;
+			// Lower IRQL to DISPATCH_LEVEL where possible
+			if ( BugCheckCtx->EFlags & 0x200 )
+			{
+				__writecr8( BugCheckState->Cr8 >= DISPATCH_LEVEL ? BugCheckState->Cr8 : DISPATCH_LEVEL );
+				_enable();
+			}
 
-			// Return from RtlpGetStackLimits
-			BugCheckCtx->Rsp += 0x30;
-			BugCheckCtx->Rip = *( ULONG64* ) ( BugCheckCtx->Rsp - 0x8 );
-			ContinueExecution( BugCheckCtx, BugCheckState );
-		}
+			// Handle __fastfail(4) during dispatch, we are causing unexpected exceptions across the kernel
+			// so RSP being valid is not a given.
+			//
+			if ( BugCheckCode == KERNEL_SECURITY_CHECK_FAILURE &&
+				 BugCheckArgs[ 0 ] == 4 )
+			{
+				KTRAP_FRAME* Tf = ( KTRAP_FRAME* ) BugCheckArgs[ 1 ];
 
-		// Try parsing parameters
-		CONTEXT* ContextRecord = nullptr;
-		EXCEPTION_RECORD ExceptionRecord;
-		if ( BugCheck::Parse( &ContextRecord, &ExceptionRecord, BugCheckCtx ) )
-		{
-			// Try handling exception
-			if ( Cb( ContextRecord, &ExceptionRecord ) == EXCEPTION_CONTINUE_EXECUTION )
-				ContinueExecution( ContextRecord, BugCheckState );
+				// Copy trap frame
+				BugCheckCtx->Rax = Tf->Rax;
+				BugCheckCtx->Rcx = Tf->Rcx;
+				BugCheckCtx->Rdx = Tf->Rdx;
+				BugCheckCtx->R8 = Tf->R8;
+				BugCheckCtx->R9 = Tf->R9;
+				BugCheckCtx->R10 = Tf->R10;
+				BugCheckCtx->R11 = Tf->R11;
+				BugCheckCtx->Rbp = Tf->Rbp;
+				BugCheckCtx->Xmm0 = Tf->Xmm0;
+				BugCheckCtx->Xmm1 = Tf->Xmm1;
+				BugCheckCtx->Xmm2 = Tf->Xmm2;
+				BugCheckCtx->Xmm3 = Tf->Xmm3;
+				BugCheckCtx->Xmm4 = Tf->Xmm4;
+				BugCheckCtx->Xmm5 = Tf->Xmm5;
+				BugCheckCtx->Rip = Tf->Rip;
+				BugCheckCtx->Rsp = Tf->Rsp;
+				BugCheckCtx->SegCs = Tf->SegCs;
+				BugCheckCtx->SegSs = Tf->SegSs;
+				BugCheckCtx->EFlags = Tf->EFlags;
+				BugCheckCtx->MxCsr = Tf->MxCsr;
+
+				// Return from RtlpGetStackLimits
+				BugCheckCtx->Rsp += 0x30;
+				BugCheckCtx->Rip = *( ULONG64* ) ( BugCheckCtx->Rsp - 0x8 );
+				KeGetPcr()->PcrAlign1[ 4 ] = FillPrev;
+				ContinueExecution( BugCheckCtx, BugCheckState );
+			}
+
+			// Try parsing parameters
+			CONTEXT* ContextRecord = nullptr;
+			EXCEPTION_RECORD ExceptionRecord;
+			if ( BugCheck::Parse( &ContextRecord, &ExceptionRecord, BugCheckCtx ) )
+			{
+				// Try handling exception
+				if ( Cb( ContextRecord, &ExceptionRecord ) == EXCEPTION_CONTINUE_EXECUTION )
+				{
+					KeGetPcr()->PcrAlign1[ 4 ] = FillPrev;
+					ContinueExecution( ContextRecord, BugCheckState );
+				}
+			}
 		}
 
 		// Failed to handle, try to show blue screen

@@ -87,6 +87,12 @@ namespace BugCheck
 				ExceptionRecord = ( EXCEPTION_RECORD* ) BugCheckArgs[ 2 ];
 				ContextRecord = ( CONTEXT* ) BugCheckArgs[ 3 ];
 				break;
+			case INTERRUPT_EXCEPTION_NOT_HANDLED:
+			case INTERRUPT_UNWIND_ATTEMPTED:
+				// TODO: Fix me, there is no context
+				ExceptionRecord = ( EXCEPTION_RECORD* ) BugCheckArgs[ 0 ];
+				ExceptionCode = ExceptionRecord->ExceptionCode;
+				ExceptionAddress = ( ULONG64 ) ExceptionRecord->ExceptionAddress;
 			case SYSTEM_SERVICE_EXCEPTION:
 				ExceptionCode = BugCheckArgs[ 0 ];
 				ExceptionAddress = BugCheckArgs[ 1 ];
